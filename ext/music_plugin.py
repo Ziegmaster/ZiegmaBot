@@ -21,6 +21,8 @@ dotenv.load_dotenv()
 url_rx = re.compile(r'https?://(?:www\.)?.+')
 
 youtube = YouTubeSearchClient()
+   
+music_plugin = lightbulb.Plugin("music_plugin", "🎧 Music commands")  
     
 class EventHandler:
     """Events from the Lavalink server"""
@@ -59,8 +61,6 @@ class EventHandler:
     @lavalink.listener(lavalink.QueueEndEvent)
     async def queue_finish(self, event: lavalink.QueueEndEvent):
         pass
-
-music_plugin = lightbulb.Plugin("Music", "🎧 Music commands")
 
 async def sr_is_enabled(ctx: lightbulb.Context) -> bool:
     user_roles = ctx.member.role_ids
@@ -438,11 +438,21 @@ async def sr(ctx: lightbulb.SlashContext) -> None:
     else:
         music_plugin.bot.d.sr = False
         await ctx.respond(embed=hikari.Embed(description='Треки сабов отключены!', colour = 0x76ffa1))
-
+        
+async def ws_route_music(websocket, message):
+    if message['command'] == 'subscribe':
+        music_plugin.bot.d.music_subscribe_pool.add(websocket)
+        
+def init_ws_routes():
+    if music_plugin.bot.get_plugin('websocket_server'):
+        music_plugin.bot.d.music_subscribe_pool = set()
+        music_plugin.bot.d.ws_routes['/music'] = ws_route_music
 
 def load(bot: lightbulb.BotApp) -> None:
 
     bot.add_plugin(music_plugin)
+    
+    init_ws_routes()
 
     music_plugin.bot.d.sr = False
 
