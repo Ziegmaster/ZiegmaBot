@@ -1,0 +1,2 @@
+# A simple Discord bot that brings cool features to my streaming routine.
+Built with [hikari](https://github.com/hikari-py/hikari) + [lightbulb](https://github.com/tandemdude/hikari-lightbulb). Music part of the bot is handled by [lavalink.py](https://github.com/Devoxin/Lavalink.py)
