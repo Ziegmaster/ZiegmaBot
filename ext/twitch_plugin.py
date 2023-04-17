@@ -135,7 +135,7 @@ async def ws_route_stream(websocket, message):
         await stream_notifiy(message['data']['title'], message['data']['category_id'], message['data']['category'])
 
 def init_ws_routes():
-    if twitch_accounts.bot.get_plugin('WebsocketServer'):
+    if twitch_accounts.bot.get_plugin('websocket_server'):
         twitch_accounts.bot.d.wish_subscribe_pool = set()
         twitch_accounts.bot.d.ws_routes['/wish'] = ws_route_wish
         twitch_accounts.bot.d.ws_routes['/stream'] = ws_route_stream
