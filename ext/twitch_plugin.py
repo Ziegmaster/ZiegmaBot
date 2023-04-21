@@ -9,9 +9,49 @@ from miru.ext import nav
 
 dotenv.load_dotenv()
 
-twitch_accounts = lightbulb.Plugin('twitch_plugin', 'Plugin for custom twitch integration')
+twitch_plugin = lightbulb.Plugin('twitch_plugin', 'Plugin for custom twitch integration')
 
-@twitch_accounts.command()
+def init_ws_routes():
+    
+    async def ws_route_wish(websocket, message):
+        if message['command'] == 'subscribe':
+            twitch_plugin.bot.d.wish_subscribe_pool.add(websocket)
+        elif message['command'] == 'make':
+            response = requests.post('http://localhost/api/gacha/store', json=message['data'])
+            if response.status_code == 200:
+                closed_connections = set()
+                for ws_client in twitch_plugin.bot.d.wish_subscribe_pool:
+                    try:
+                        await ws_client.send(response.text)
+                    except:
+                        closed_connections.add(ws_client)
+                for conn in closed_connections:
+                    twitch_plugin.bot.d.wish_subscribe_pool.remove(conn)
+                
+    async def ws_route_stream(websocket, message):
+        if message['command'] == 'online':
+            await stream_notifiy(message['data']['title'], message['data']['category_id'], message['data']['category'])
+    
+    if twitch_plugin.bot.get_plugin('websocket_server'):
+        twitch_plugin.bot.d.wish_subscribe_pool = set()
+        twitch_plugin.bot.d.ws_routes['/wish'] = ws_route_wish
+        twitch_plugin.bot.d.ws_routes['/stream'] = ws_route_stream
+
+async def stream_notifiy(title, category_id, category_name) -> None:
+    embed = hikari.Embed(
+        title=title,
+        description=category_name,
+        url = 'https://twitch.tv/ziegmaster',
+        color = Color.from_hex_code('#772CE8'),
+    )
+    if requests.get(f'https://static-cdn.jtvnw.net/ttv-boxart/{category_id}-144x192.jpg').url != 'https://static-cdn.jtvnw.net/ttv-static/404_boxart-144x192.jpg':
+        category_thumb = f'https://static-cdn.jtvnw.net/ttv-boxart/{category_id}-144x192.jpg'
+    else:
+        category_thumb = f'https://static-cdn.jtvnw.net/ttv-boxart/{category_id}_IGDB-144x192.jpg'
+    embed.set_thumbnail(category_thumb)
+    await twitch_plugin.bot.rest.create_message(os.environ['TEXT_CHANNEL_ANNOUNCE'], content='@everyone Ziegmaster запустил прямую трансляцию!', embed=embed, mentions_everyone=True)
+
+@twitch_plugin.command()
 @lightbulb.command('account', 'Команды для взаимодействия с учетной записью пользователя')
 @lightbulb.implements(lightbulb.SlashCommandGroup)
 async def account(ctx: lightbulb.SlashContext) -> None: ...
@@ -115,46 +155,6 @@ async def get_user_twitch_id(discord_id) -> str:
                 return conn['id']
     return None
 
-async def ws_route_wish(websocket, message):
-    if message['command'] == 'subscribe':
-        twitch_accounts.bot.d.wish_subscribe_pool.add(websocket)
-    elif message['command'] == 'make':
-        response = requests.post('http://localhost/api/gacha/store', json=message['data'])
-        if response.status_code == 200:
-            closed_connections = set()
-            for ws_client in twitch_accounts.bot.d.wish_subscribe_pool:
-                try:
-                    await ws_client.send(response.text)
-                except:
-                    closed_connections.add(ws_client)
-            for conn in closed_connections:
-                twitch_accounts.bot.d.wish_subscribe_pool.remove(conn)
-                
-async def ws_route_stream(websocket, message):
-    if message['command'] == 'online':
-        await stream_notifiy(message['data']['title'], message['data']['category_id'], message['data']['category'])
-
-def init_ws_routes():
-    if twitch_accounts.bot.get_plugin('websocket_server'):
-        twitch_accounts.bot.d.wish_subscribe_pool = set()
-        twitch_accounts.bot.d.ws_routes['/wish'] = ws_route_wish
-        twitch_accounts.bot.d.ws_routes['/stream'] = ws_route_stream
-            
-async def stream_notifiy(self, title, category_id, category_name) -> None:
-    embed = hikari.Embed(
-        title=title,
-        description=category_name,
-        url = 'https://twitch.tv/ziegmaster',
-        color = Color.from_hex_code('#772CE8'),
-    )
-    if requests.get(f'https://static-cdn.jtvnw.net/ttv-boxart/{category_id}-144x192.jpg').url != 'https://static-cdn.jtvnw.net/ttv-static/404_boxart-144x192.jpg':
-        category_thumb = f'https://static-cdn.jtvnw.net/ttv-boxart/{category_id}-144x192.jpg'
-    else:
-        category_thumb = f'https://static-cdn.jtvnw.net/ttv-boxart/{category_id}_IGDB-144x192.jpg'
-    embed.set_thumbnail(category_thumb)
-    #embed.set_image('https://static-cdn.jtvnw.net/previews-ttv/live_user_ziegmaster-1920x1080.jpg?width=1193&height=671')
-    await self.rest.create_message(os.environ['TEXT_CHANNEL_ANNOUNCE'], content='@everyone Ziegmaster запустил прямую трансляцию!', embed=embed, mentions_everyone=True)
-
 def load(bot: lightbulb.BotApp) -> None:
-    bot.add_plugin(twitch_accounts)
+    bot.add_plugin(twitch_plugin)
     init_ws_routes()

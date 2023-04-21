@@ -22,7 +22,17 @@ url_rx = re.compile(r'https?://(?:www\.)?.+')
 
 youtube = YouTubeSearchClient()
    
-music_plugin = lightbulb.Plugin("music_plugin", "🎧 Music commands")  
+music_plugin = lightbulb.Plugin("music_plugin", "🎧 Music commands")
+
+def init_ws_routes():
+    
+    async def ws_route_music(websocket, message):
+        if message['command'] == 'subscribe':
+            music_plugin.bot.d.music_subscribe_pool.add(websocket)
+    
+    if music_plugin.bot.get_plugin('websocket_server'):
+        music_plugin.bot.d.music_subscribe_pool = set()
+        music_plugin.bot.d.ws_routes['/music'] = ws_route_music
     
 class EventHandler:
     """Events from the Lavalink server"""
@@ -100,7 +110,6 @@ async def music_handler() -> None:
             for conn in closed_connections:
                 music_plugin.bot.d.music_subscribe_pool.remove(conn)
 
-
 # on ready, connect to lavalink server
 @music_plugin.listener(hikari.ShardReadyEvent)
 async def start_lavalink(event: hikari.ShardReadyEvent) -> None:
@@ -122,7 +131,6 @@ async def start_lavalink(event: hikari.ShardReadyEvent) -> None:
     music_plugin.bot.d.youtube = youtube
     music_plugin.bot.d.music = MusicCommand(music_plugin.bot)
 
-
 @music_plugin.listener(hikari.VoiceServerUpdateEvent)
 async def voice_server_update(event: hikari.VoiceServerUpdateEvent) -> None:
 
@@ -136,7 +144,6 @@ async def voice_server_update(event: hikari.VoiceServerUpdateEvent) -> None:
     }
 
     await music_plugin.bot.d.lavalink.voice_update_handler(lavalink_data)
-
 
 @music_plugin.listener(hikari.VoiceStateUpdateEvent)
 async def voice_state_update(event: hikari.VoiceStateUpdateEvent) -> None:
@@ -193,7 +200,6 @@ async def voice_state_update(event: hikari.VoiceStateUpdateEvent) -> None:
         await player.set_pause(True)
         logging.info("Track paused on guild: %s", event.guild_id)
 
-
 @music_plugin.command()
 @lightbulb.add_checks(lightbulb.guild_only, sr_check)
 @lightbulb.option("запрос", "Название трека или ссылка на YouTube(Music)", required=True)
@@ -216,7 +222,6 @@ async def play(ctx: lightbulb.SlashContext) -> None:
     else:
         await ctx.respond(embed=e)
 
-
 @music_plugin.command()
 @lightbulb.add_checks(lightbulb.guild_only, sr_check)
 @lightbulb.command("leave", "Отключить бота от голосового канала", auto_defer=True)
@@ -229,8 +234,7 @@ async def leave(ctx: lightbulb.SlashContext) -> None:
     except MusicCommandError as e:
         await ctx.respond(e)
     else:
-        await ctx.respond("Выполнено отключение от голосового канала!")
-        
+        await ctx.respond("Выполнено отключение от голосового канала!")    
 
 @music_plugin.command()
 @lightbulb.add_checks(lightbulb.guild_only, sr_check)
@@ -244,7 +248,6 @@ async def join(ctx: lightbulb.SlashContext) -> None:
         await ctx.respond(e)
     else:
         await ctx.respond(f"Выполнено подключение к каналу <#{channel_id}>")
-
 
 @music_plugin.command()
 @lightbulb.add_checks(lightbulb.guild_only, sr_check)
@@ -260,7 +263,6 @@ async def stop(ctx: lightbulb.SlashContext) -> None:
     else:
         await ctx.respond(embed=e)
 
-
 @music_plugin.command()
 @lightbulb.add_checks(lightbulb.guild_only, sr_check)
 @lightbulb.command("skip", "Пропустить текущий трек", auto_defer=True)
@@ -274,7 +276,6 @@ async def skip(ctx: lightbulb.SlashContext) -> None:
         await ctx.respond(e)
     else:
         await ctx.respond(embed=e)
-
 
 @music_plugin.command()
 @lightbulb.add_checks(lightbulb.guild_only, sr_check)
@@ -290,7 +291,6 @@ async def pause(ctx: lightbulb.SlashContext) -> None:
     else:
         await ctx.respond(embed=e)
 
-
 @music_plugin.command()
 @lightbulb.add_checks(lightbulb.guild_only, sr_check)
 @lightbulb.command("resume", "Продолжить воспроизведение трека", auto_defer=True)
@@ -304,7 +304,6 @@ async def resume(ctx: lightbulb.SlashContext) -> None:
         await ctx.respond(e)
     else:
         await ctx.respond(embed=e)
-
 
 @music_plugin.command()
 @lightbulb.add_checks(lightbulb.guild_only, sr_check)
@@ -321,7 +320,6 @@ async def seek(ctx : lightbulb.SlashContext) -> None:
     else:
         await ctx.respond(embed=e)
 
-
 @music_plugin.command()
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.command("queue", "Показать следующие 10 треков в очереди", auto_defer=True)
@@ -334,7 +332,6 @@ async def queue(ctx : lightbulb.SlashContext) -> None:
         await ctx.respond(e)
     else:
         await ctx.respond(embed=e)
-
 
 @music_plugin.command()
 @lightbulb.add_checks(lightbulb.guild_only, sr_check)
@@ -351,7 +348,6 @@ async def loop(ctx : lightbulb.SlashContext) -> None:
     else:
         await ctx.respond(embed=e)
 
-
 @music_plugin.command()
 @lightbulb.add_checks(lightbulb.guild_only, sr_check)
 @lightbulb.command("shuffle", "Включить/выключить случайный порядок воспроизведения очереди", auto_defer=True)
@@ -364,7 +360,6 @@ async def shuffle(ctx : lightbulb.SlashContext) -> None:
         await ctx.respond(e)
     else:
         await ctx.respond(embed=e)
-
 
 @music_plugin.command()
 @lightbulb.option('запрос', 'Название трека или ссылка на YouTube(Music)', required=True)
@@ -399,7 +394,6 @@ async def song_request(ctx: lightbulb.SlashContext) -> None:
             await ctx.respond('Серверная ошибка.')
     else: ctx.respond('Ничего не найдено.')   
 
-
 @music_plugin.command()
 @lightbulb.option('код', 'Код трека для отмены заказа', required=True)
 @lightbulb.command('song_remove', 'Отменить заказ трека')
@@ -425,7 +419,6 @@ async def song_remove(ctx: lightbulb.SlashContext) -> None:
     except:
         await ctx.respond(':warning: Ошибка! Код трека должен быть числом.')
 
-
 @music_plugin.command()
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("режим", "Состояние плеера", choices=['on', 'off'], required=True)
@@ -438,15 +431,6 @@ async def sr(ctx: lightbulb.SlashContext) -> None:
     else:
         music_plugin.bot.d.sr = False
         await ctx.respond(embed=hikari.Embed(description='Треки сабов отключены!', colour = 0x76ffa1))
-        
-async def ws_route_music(websocket, message):
-    if message['command'] == 'subscribe':
-        music_plugin.bot.d.music_subscribe_pool.add(websocket)
-        
-def init_ws_routes():
-    if music_plugin.bot.get_plugin('websocket_server'):
-        music_plugin.bot.d.music_subscribe_pool = set()
-        music_plugin.bot.d.ws_routes['/music'] = ws_route_music
 
 def load(bot: lightbulb.BotApp) -> None:
 
